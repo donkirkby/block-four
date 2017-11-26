@@ -4,7 +4,7 @@ from block_four_game import BlockFourGame, BlockFourMove
 
 
 def test_initial_state():
-    state = BlockFourGame().initial_state()
+    state = BlockFourGame().initial_state(player=1)
     assert state.cells[0][0] is None
     assert state.player == 1
     assert len(state.cells) == 9
@@ -12,7 +12,7 @@ def test_initial_state():
 
 
 def test_initial_state_small():
-    state = BlockFourGame(field_size=2, field_count=2).initial_state()
+    state = BlockFourGame(field_size=2, field_count=2).initial_state(player=1)
     assert state.cells[0][0] is None
     assert len(state.cells) == 4
     assert len(state.cells[0]) == 4
@@ -34,7 +34,7 @@ def test_format():
 
 def test_move():
     game = BlockFourGame()
-    state1 = game.initial_state()
+    state1 = game.initial_state(player=1)
     move = BlockFourMove(row=1, column=3)
     state2 = game.apply_move(state1, move)
 
@@ -45,7 +45,7 @@ def test_move():
 
 def test_filled_field():
     game = BlockFourGame(field_size=2, field_count=2)
-    state1 = game.initial_state(cells="""\
+    state1 = game.initial_state(player=1, cells="""\
 ++..
 ....
 ....
@@ -63,7 +63,7 @@ def test_filled_field():
 
 
 def test_current_player1():
-    state = BlockFourGame().initial_state()
+    state = BlockFourGame().initial_state(player=1)
 
     player = BlockFourGame.current_player(state)
 
@@ -72,7 +72,7 @@ def test_current_player1():
 
 def test_current_player2():
     game = BlockFourGame()
-    state1 = game.initial_state()
+    state1 = game.initial_state(player=1)
     state2 = game.apply_move(state1, BlockFourMove(1, 3))
 
     player = game.current_player(state2)
@@ -82,7 +82,7 @@ def test_current_player2():
 
 def test_get_first_moves():
     game = BlockFourGame(field_size=1, field_count=2)
-    state = game.initial_state()
+    state = game.initial_state(player=1)
     expected_moves = [BlockFourMove(0, 0),
                       BlockFourMove(0, 1),
                       BlockFourMove(1, 0),

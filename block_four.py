@@ -190,6 +190,8 @@ class Game:
     def main_loop(self):
         self.draw()
         pygame.display.flip()
+        if self.state.player == -1:
+            self.state_queue.put(self.state)
         while True:
             event = pygame.event.poll()
             if event.type != pygame.NOEVENT:

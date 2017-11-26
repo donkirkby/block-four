@@ -1,4 +1,5 @@
 from collections import namedtuple, Counter
+from random import choice
 
 from mittmcts import Draw
 
@@ -16,7 +17,9 @@ class BlockFourGame:
         self.field_size = field_size
         self.field_count = field_count
 
-    def initial_state(self, player=1, cells: str=None):
+    def initial_state(self, player=None, cells: str=None):
+        if player is None:
+            player = choice((1, -1))
         grid_size = self.field_size * self.field_count
         new_cells = [[None] * grid_size for _ in range(grid_size)]
         if cells is not None:
