@@ -1,9 +1,15 @@
 from collections import namedtuple
+from logging import basicConfig, getLogger, WARN
+from queue import Queue, Empty
+from threading import Thread
 
 import mittmcts
 import pygame
 
 from block_four_game import BlockFourGame, BlockFourMove
+
+basicConfig(format='%(asctime)s %(message)s', level=WARN)
+logger = getLogger(__name__)
 
 BLACK = 100, 100, 100
 RED = 200, 0, 0
@@ -19,7 +25,7 @@ WindowSize = namedtuple('WindowSize', 'grid_size line_width grid_x grid_y')
 
 
 class Game:
-    def __init__(self, surface=None):
+    def __init__(self, surface=None, opponent_iterations=10):
         pygame.init()
         pygame.mixer.quit()  # Avoids high CPU.
 
@@ -55,6 +61,15 @@ class Game:
         self.game = BlockFourGame()
         self.state = self.game.initial_state()
         self.winner = self.game.get_winner(self.state)
+        self.state_queue = Queue()
+        self.opponent_result_queue = Queue()
+        opponent_thread = Thread(target=run_opponent,
+                                 args=(self.game,
+                                       self.state_queue,
+                                       self.opponent_result_queue,
+                                       opponent_iterations),
+                                 daemon=True)
+        opponent_thread.start()
 
     def rescale(self):
         grid_size = min(self.width, self.height) * .5
@@ -156,7 +171,7 @@ class Game:
                             points)
 
     def click(self, pos):
-        if self.winner:
+        if self.winner or self.state.player != 1:
             return
         x, y = pos
         step_size = self.size.grid_size / self.row_length
@@ -170,15 +185,15 @@ class Game:
         self.winner = self.game.get_winner(self.state)
         if self.winner:
             return
-        result = mittmcts.MCTS(self.game, self.state).get_simulation_result(10)
-        self.state = self.game.apply_move(self.state, result.move)
-        self.winner = self.game.get_winner(self.state)
+        self.state_queue.put(self.state)
 
     def main_loop(self):
         self.draw()
         pygame.display.flip()
         while True:
-            event = pygame.event.wait()
+            event = pygame.event.poll()
+            if event.type != pygame.NOEVENT:
+                logger.debug('received event %s', event)
             if event.type == pygame.QUIT:
                 return
             elif event.type == pygame.VIDEORESIZE:
@@ -188,6 +203,13 @@ class Game:
                 self.size = self.rescale()
             elif event.type == pygame.MOUSEBUTTONUP:
                 self.click(event.pos)
+            elif event.type == pygame.NOEVENT:
+                try:
+                    result = self.opponent_result_queue.get(timeout=0.1)
+                except Empty:
+                    continue
+                self.state = self.game.apply_move(self.state, result.move)
+                self.winner = self.game.get_winner(self.state)
             else:
                 continue
             self.draw()
@@ -195,6 +217,20 @@ class Game:
 
     def get_player(self, row, column):
         return self.state.cells[row][column]
+
+
+def run_opponent(game: BlockFourGame,
+                 state_queue: Queue,
+                 result_queue: Queue,
+                 opponent_iterations: int):
+    logger.info('Starting opponent.')
+    while True:
+        state = state_queue.get()
+        logger.debug('received state')
+        searcher = mittmcts.MCTS(game, state)
+        result = searcher.get_simulation_result(opponent_iterations)
+        logger.debug('sending result')
+        result_queue.put(result)
 
 
 def create_icon(colour1, colour2):
@@ -246,7 +282,7 @@ def live_main():
 
 
 def main():
-    game = Game()
+    game = Game(opponent_iterations=100)
     game.main_loop()
 
 
