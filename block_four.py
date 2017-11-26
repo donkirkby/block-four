@@ -1,7 +1,9 @@
 from collections import namedtuple
-from random import choice
 
+import mittmcts
 import pygame
+
+from block_four_game import BlockFourGame, BlockFourMove
 
 BLACK = 100, 100, 100
 RED = 200, 0, 0
@@ -23,7 +25,6 @@ class Game:
 
         self.speed = [2, 2]
         self.row_length = 9
-        self.spaces = [[0] * self.row_length for _ in range(self.row_length)]
 
         self.background = (100, 100, 100)
         self.grid_colour = (20, 20, 20)
@@ -51,6 +52,9 @@ class Game:
                               ' **'),
                              ('****',
                               ''))
+        self.game = BlockFourGame()
+        self.state = self.game.initial_state()
+        self.winner = self.game.get_winner(self.state)
 
     def rescale(self):
         grid_size = min(self.width, self.height) * .5
@@ -60,7 +64,10 @@ class Game:
                           grid_y=(self.height - grid_size) * .5)
 
     def draw_grid_line(self, x1, y1, x2, y2):
-        self.surface.fill(self.grid_colour,
+        colour = (self.player_colour if self.winner == 1
+                  else self.opponent_colour if self.winner == -1
+                  else self.grid_colour)
+        self.surface.fill(colour,
                           (x1, y1, x2-x1, y2-y1))
 
     def draw(self):
@@ -73,10 +80,6 @@ class Game:
         inner_y1 = outer_y1 + 2*self.size.line_width
         inner_y2 = outer_y1 + self.size.grid_size
         outer_y2 = inner_y2 + 2*self.size.line_width
-        self.draw_grid_line(outer_x1, outer_y1, outer_x2, inner_y1)
-        self.draw_grid_line(outer_x1, inner_y2, outer_x2, outer_y2)
-        self.draw_grid_line(outer_x1, inner_y1, inner_x1, outer_y2)
-        self.draw_grid_line(inner_x2, inner_y1, outer_x2, outer_y2)
         for i in range(8):
             y = self.size.grid_y + (i + 1) * self.size.grid_size / self.row_length
             line_width = (self.size.line_width*2
@@ -97,6 +100,10 @@ class Game:
                              (x,
                               (self.height + self.size.grid_size) * .5),
                              line_width)
+        self.draw_grid_line(outer_x1, outer_y1, outer_x2, inner_y1)
+        self.draw_grid_line(outer_x1, inner_y2, outer_x2, outer_y2)
+        self.draw_grid_line(outer_x1, inner_y1, inner_x1, outer_y2)
+        self.draw_grid_line(inner_x2, inner_y1, outer_x2, outer_y2)
 
         self.draw_pieces(outer_x1, outer_y2, self.player_colour, ydir=1)
         self.draw_pieces(outer_x1, outer_y1, self.opponent_colour, ydir=-1)
@@ -149,6 +156,8 @@ class Game:
                             points)
 
     def click(self, pos):
+        if self.winner:
+            return
         x, y = pos
         step_size = self.size.grid_size / self.row_length
         row = int((y - self.size.grid_y) // step_size)
@@ -157,41 +166,35 @@ class Game:
             return
         if column < 0 or self.row_length <= column:
             return
-        self.mark(row, column, player=1)
-        open_spaces = [(row, column)
-                       for row in range(self.row_length)
-                       for column in range(self.row_length)
-                       if not self.get_player(row, column)]
-        if open_spaces:
-            row, column = choice(open_spaces)
-            self.mark(row, column, player=-1)
+        self.state = self.game.apply_move(self.state, BlockFourMove(row, column))
+        self.winner = self.game.get_winner(self.state)
+        if self.winner:
+            return
+        result = mittmcts.MCTS(self.game, self.state).get_simulation_result(10)
+        self.state = self.game.apply_move(self.state, result.move)
+        self.winner = self.game.get_winner(self.state)
 
     def main_loop(self):
         self.draw()
         pygame.display.flip()
         while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-                elif event.type == pygame.VIDEORESIZE:
-                    self.width, self.height = event.size
-                    self.surface = pygame.display.set_mode((self.width, self.height),
-                                                           pygame.RESIZABLE)
-                    self.size = self.rescale()
-                    pygame.display.update()
-                    self.draw()
-                    pygame.display.flip()
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    self.click(event.pos)
-                    self.draw()
-                    pygame.display.flip()
-            pygame.time.wait(500)
-
-    def mark(self, row, column, player):
-        self.spaces[row][column] = player
+            event = pygame.event.wait()
+            if event.type == pygame.QUIT:
+                return
+            elif event.type == pygame.VIDEORESIZE:
+                self.width, self.height = event.size
+                self.surface = pygame.display.set_mode((self.width, self.height),
+                                                       pygame.RESIZABLE)
+                self.size = self.rescale()
+            elif event.type == pygame.MOUSEBUTTONUP:
+                self.click(event.pos)
+            else:
+                continue
+            self.draw()
+            pygame.display.flip()
 
     def get_player(self, row, column):
-        return self.spaces[row][column]
+        return self.state.cells[row][column]
 
 
 def create_icon(colour1, colour2):
@@ -221,8 +224,17 @@ def live_main():
     surface = pygame.Surface((300, 200))
     try:
         game = Game(surface)
-        game.mark(0, 2, 1)
-        game.mark(4, 3, -1)
+        game.state = game.game.initial_state(cells="""\
++++---+++
+---+++---
++++---+++
+---+++---
++++---+++
+---+++.-.
++++---+++
+---++++++
++++---+++
+""")
         click_pos = (172, 112)
         game.click(click_pos)
         game.draw()
