@@ -1,10 +1,11 @@
-from collections import namedtuple, Counter
+from collections import namedtuple
 from random import choice
 
 from mittmcts import Draw
 
 BlockFourState = namedtuple('BlockFourState',
-                            ['cells',  # [[None, 1, -1]] 9x9
+                            ['pos_cells',  # integer of bit flags
+                             'neg_cells',  # integer of bit flags
                              'player'])  # next player to move: -1 or 1
 
 
@@ -21,64 +22,96 @@ class BlockFourGame:
         if player is None:
             player = choice((1, -1))
         grid_size = self.field_size * self.field_count
-        new_cells = [[None] * grid_size for _ in range(grid_size)]
+        pos_cells = 0
+        neg_cells = 0
         if cells is not None:
             for i, row in enumerate(cells.splitlines(keepends=False)):
                 for j, cell in enumerate(row):
+                    bit = 1 << grid_size*i + j
                     if cell == '+':
-                        new_cells[i][j] = 1
+                        pos_cells |= bit
                     elif cell == '-':
-                        new_cells[i][j] = -1
-        return BlockFourState(cells=new_cells,
+                        neg_cells |= bit
+        return BlockFourState(pos_cells=pos_cells,
+                              neg_cells=neg_cells,
                               player=player)
 
-    @staticmethod
-    def format(state):
+    def format(self, state):
+        size = self.get_size()
+        rows = ((self.get_cell(state, row, column)
+                 for column in range(size))
+                for row in range(size))
         return '\n'.join(''.join('+' if cell == 1
                                  else '-' if cell == -1
                                  else '.'
                                  for cell in row)
-                         for row in state.cells)
+                         for row in rows)
+
+    def get_cell(self, state: BlockFourState, row, column):
+        bit = 1 << self.get_size()*row + column
+        return (1 if state.pos_cells & bit
+                else -1 if state.neg_cells & bit
+                else None)
+
+    def get_size(self):
+        return self.field_size * self.field_count
 
     def apply_move(self, state: BlockFourState, move: BlockFourMove):
-        new_cells = [row[:] for row in state.cells]
         player = state.player
-        new_cells[move.row][move.column] = player
+        active_cells, other_cells = ((state.pos_cells, state.neg_cells)
+                                     if player == 1
+                                     else (state.neg_cells, state.pos_cells))
+
+        grid_size = self.get_size()
+        bit = 1 << (move.row * grid_size + move.column)
+        active_cells |= bit
         rows_field = move.row // self.field_size
         columns_field = move.column // self.field_size
         start_row = rows_field * self.field_size
         stop_row = start_row + self.field_size
         start_column = columns_field * self.field_size
         stop_column = start_column + self.field_size
-        counter = Counter(new_cells[row][column]
-                          for row in range(start_row, stop_row)
-                          for column in range(start_column, stop_column))
-        top_player, count = counter.most_common(1)[0]
-        if count * 2 > self.field_size * self.field_size:
+        bit_count = sum(0 != (active_cells & 1 << (row * grid_size + column))
+                        for row in range(start_row, stop_row)
+                        for column in range(start_column, stop_column))
+        if bit_count * 2 > self.field_size * self.field_size:
             for row in range(start_row, stop_row):
                 for column in range(start_column, stop_column):
-                    if new_cells[row][column] is None:
-                        new_cells[row][column] = top_player
+                    bit = 1 << (row * grid_size + column)
+                    if bit & other_cells == 0:
+                        active_cells |= bit
 
+        pos_cells, neg_cells = ((active_cells, other_cells)
+                                if player == 1
+                                else (other_cells, active_cells))
         player = -player
-        return BlockFourState(new_cells, player)
+        return BlockFourState(pos_cells, neg_cells, player)
 
-    @staticmethod
-    def get_winner(state: BlockFourState):
-        try:
-            total = sum(cell for row in state.cells for cell in row)
-        except TypeError:
+    def get_winner(self, state: BlockFourState):
+        grid_size = self.get_size()
+        max_count = grid_size * grid_size
+        pos_count = bin(state.pos_cells).count("1")
+        neg_count = bin(state.neg_cells).count("1")
+        if pos_count + neg_count < max_count:
             return None
-
-        return 1 if total > 0 else -1 if total < 0 else Draw
+        if pos_count > neg_count:
+            return 1
+        if pos_count < neg_count:
+            return -1
+        return Draw
 
     @staticmethod
     def current_player(state: BlockFourState):
         return state.player
 
-    @staticmethod
-    def get_moves(state: BlockFourState):
-        return False, [BlockFourMove(i, j)
-                       for i, row in enumerate(state.cells)
-                       for j, cell in enumerate(row)
-                       if cell is None]
+    def get_moves(self, state: BlockFourState):
+        moves = []
+        grid_size = self.get_size()
+        filled_cells = state.pos_cells | state.neg_cells
+        bit = 1
+        for row in range(grid_size):
+            for column in range(grid_size):
+                if filled_cells & bit == 0:
+                    moves.append(BlockFourMove(row, column))
+                bit <<= 1
+        return False, moves

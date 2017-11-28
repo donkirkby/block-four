@@ -148,7 +148,7 @@ class Game:
         radius = round(self.size.grid_size / 22)
         for row in range(self.row_length):
             for column in range(self.row_length):
-                player = self.get_player(row, column)
+                player = self.game.get_cell(self.state, row, column)
                 if player:
                     x = round(self.size.grid_x + (column + 0.5)*step_size)
                     y = round(self.size.grid_y + (row + 0.5)*step_size)
@@ -216,9 +216,6 @@ class Game:
                 continue
             self.draw()
             pygame.display.flip()
-
-    def get_player(self, row, column):
-        return self.state.cells[row][column]
 
 
 def run_opponent(game: BlockFourGame,

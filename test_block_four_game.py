@@ -4,18 +4,36 @@ from block_four_game import BlockFourGame, BlockFourMove
 
 
 def test_initial_state():
-    state = BlockFourGame().initial_state(player=1)
-    assert state.cells[0][0] is None
+    game = BlockFourGame()
+
+    state = game.initial_state(player=1)
+
+    assert game.get_cell(state, 0, 0) is None
     assert state.player == 1
-    assert len(state.cells) == 9
-    assert len(state.cells[0]) == 9
+    assert game.get_size() == 9
 
 
 def test_initial_state_small():
-    state = BlockFourGame(field_size=2, field_count=2).initial_state(player=1)
-    assert state.cells[0][0] is None
-    assert len(state.cells) == 4
-    assert len(state.cells[0]) == 4
+    game = BlockFourGame(field_size=2, field_count=2)
+
+    state = game.initial_state(player=1)
+
+    assert game.get_cell(state, 0, 0) is None
+    assert game.get_size() == 4
+
+
+def test_get_cell():
+    game = BlockFourGame(field_size=1, field_count=3)
+    state = game.initial_state(cells="""\
++..
+...
+.-.
+
+""")
+
+    assert 1 == game.get_cell(state, row=0, column=0)
+    assert -1 == game.get_cell(state, row=2, column=1)
+    assert None is game.get_cell(state, row=2, column=2)
 
 
 def test_format():
@@ -38,8 +56,8 @@ def test_move():
     move = BlockFourMove(row=1, column=3)
     state2 = game.apply_move(state1, move)
 
-    assert state2.cells[1][3] == 1
-    assert state2.cells[2][3] is None
+    assert game.get_cell(state2, 1, 3) == 1
+    assert game.get_cell(state2, 2, 3) is None
     assert state2.player == -1
 
 
@@ -109,41 +127,33 @@ def test_get_later_moves():
 
 
 def test_no_winner():
-    state = BlockFourGame(field_size=1, field_count=2).initial_state(cells="""\
+    game = BlockFourGame(field_size=1, field_count=2)
+    state = game.initial_state(cells="""\
 ++
 +.
 """)
-    state.cells[0][0] = 1
-    state.cells[0][1] = 1
-    state.cells[1][0] = 1
-    winner = BlockFourGame.get_winner(state)
+    winner = game.get_winner(state)
 
     assert winner is None
 
 
-def test_winner():
-    state = BlockFourGame(field_size=1, field_count=2).initial_state(cells="""\
+def test():
+    game = BlockFourGame(field_size=1, field_count=2)
+    state = game.initial_state(cells="""\
 ++
 +-
 """)
-    state.cells[0][0] = 1
-    state.cells[0][1] = 1
-    state.cells[1][0] = 1
-    state.cells[1][1] = -1
-    winner = BlockFourGame.get_winner(state)
+    winner = game.get_winner(state)
 
     assert winner == 1
 
 
-def test():
-    state = BlockFourGame(field_size=1, field_count=2).initial_state(cells="""\
+def test_winner_draw():
+    game = BlockFourGame(field_size=1, field_count=2)
+    state = game.initial_state(cells="""\
 ++
 --
 """)
-    state.cells[0][0] = 1
-    state.cells[0][1] = 1
-    state.cells[1][0] = -1
-    state.cells[1][1] = -1
-    winner = BlockFourGame.get_winner(state)
+    winner = game.get_winner(state)
 
     assert winner is Draw
