@@ -104,14 +104,19 @@ class BlockFourGame:
     def current_player(state: BlockFourState):
         return state.player
 
+    def get_field_moves(self, state: BlockFourState, row_field, column_field):
+        start_row = row_field * self.field_size
+        for row in range(start_row, start_row + self.field_size):
+            start_column = column_field * self.field_size
+            for column in range(start_column,
+                                start_column + self.field_size):
+                if self.get_cell(state, row, column) is None:
+                    yield BlockFourMove(row, column)
+                    return
+
     def get_moves(self, state: BlockFourState):
         moves = []
-        grid_size = self.get_size()
-        filled_cells = state.pos_cells | state.neg_cells
-        bit = 1
-        for row in range(grid_size):
-            for column in range(grid_size):
-                if filled_cells & bit == 0:
-                    moves.append(BlockFourMove(row, column))
-                bit <<= 1
+        for row_field in range(self.field_count):
+            for column_field in range(self.field_count):
+                moves.extend(self.get_field_moves(state, row_field, column_field))
         return False, moves

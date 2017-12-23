@@ -50,12 +50,12 @@ class Game:
         self.size = self.rescale()
         self.piece_shapes = (('**',
                               '**'),
-                             ('***',
-                              '*'),
-                             ('***',
-                              ' *'),
                              ('**',
                               ' **'),
+                             ('***',
+                              ' *'),
+                             ('***',
+                              '*'),
                              ('****',
                               ''))
         self.game = BlockFourGame()
@@ -85,7 +85,7 @@ class Game:
         self.surface.fill(colour,
                           (x1, y1, x2-x1, y2-y1))
 
-    def draw(self):
+    def draw(self, markers='  '):
         self.surface.fill(self.background)
         outer_x1 = self.size.grid_x - self.size.line_width
         inner_x1 = outer_x1 + 2*self.size.line_width
@@ -120,16 +120,25 @@ class Game:
         self.draw_grid_line(outer_x1, inner_y1, inner_x1, outer_y2)
         self.draw_grid_line(inner_x2, inner_y1, outer_x2, outer_y2)
 
-        self.draw_pieces(outer_x1, outer_y2, self.player_colour, ydir=1)
-        self.draw_pieces(outer_x1, outer_y1, self.opponent_colour, ydir=-1)
+        self.draw_pieces(outer_x2,
+                         outer_y1,
+                         self.opponent_colour,
+                         dir=-1,
+                         marker=markers[0])
+        self.draw_pieces(outer_x1,
+                         outer_y2,
+                         self.player_colour,
+                         dir=1,
+                         marker=markers[1])
         self.draw_spaces()
 
-    def draw_pieces(self, start_x, start_y, colour, ydir):
+    def draw_pieces(self, start_x, start_y, colour, dir, marker=''):
         step_size = self.size.grid_size / self.row_length
-        x = start_x + self.size.line_width - 5*step_size
+        x = start_x + dir * (self.size.line_width - 5*step_size)
+        y = start_y
         for shape in self.piece_shapes:
             y = start_y
-            if ydir < 0:
+            if dir < 0:
                 y -= 3*step_size
             else:
                 y += step_size
@@ -137,11 +146,14 @@ class Game:
                 for i, cell in enumerate(row):
                     if cell != ' ':
                         self.surface.fill(colour,
-                                          (x + i*step_size,
+                                          (x + dir*i*step_size,
                                            y + j*step_size,
                                            step_size+1,
                                            step_size+1))
-            x += step_size * (1 + max(len(row) for row in shape))
+            x += dir * step_size * (1 + max(len(row) for row in shape))
+        font = pygame.font.SysFont('monospace', 22)
+        label = font.render(marker, 1, colour)
+        self.surface.blit(label, (x, y))
 
     def draw_spaces(self):
         step_size = self.size.grid_size / self.row_length
@@ -259,21 +271,15 @@ def live_main():
     surface = pygame.Surface((300, 200))
     try:
         game = Game(surface)
+        game.background = (250, 250, 250)
+        game.player_colour = (200, 0, 0)
+        game.opponent_colour = (0, 0, 0)
         game.state = game.game.initial_state(cells="""\
-+++---+++
----+++---
-+++---+++
----+++---
-+++---+++
----+++.-.
-+++---+++
----++++++
-+++---+++
 """)
         click_pos = (172, 112)
-        game.click(click_pos)
-        game.draw()
-        pygame.draw.circle(surface, game.opponent_colour, click_pos, 2)
+        # game.click(click_pos)
+        game.draw(markers='XO')
+        # pygame.draw.circle(surface, game.opponent_colour, click_pos, 2)
     except Exception as ex:
         surface.fill(BLACK)
         print(ex)
@@ -281,7 +287,7 @@ def live_main():
 
 
 def main():
-    game = Game(opponent_iterations=100)
+    game = Game(opponent_iterations=10000)
     game.main_loop()
 
 

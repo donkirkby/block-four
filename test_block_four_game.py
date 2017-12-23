@@ -126,6 +126,24 @@ def test_get_later_moves():
     assert expected_moves == moves
 
 
+def test():
+    game = BlockFourGame(field_size=2, field_count=2)
+    state = game.initial_state(cells="""\
++...
+....
+.-..
+....
+""")
+    expected_moves = [BlockFourMove(0, 1),
+                      BlockFourMove(0, 2),
+                      BlockFourMove(2, 0),
+                      BlockFourMove(2, 2)]
+
+    _, moves = game.get_moves(state)
+
+    assert expected_moves == moves
+
+
 def test_no_winner():
     game = BlockFourGame(field_size=1, field_count=2)
     state = game.initial_state(cells="""\
@@ -137,7 +155,7 @@ def test_no_winner():
     assert winner is None
 
 
-def test():
+def test_winner():
     game = BlockFourGame(field_size=1, field_count=2)
     state = game.initial_state(cells="""\
 ++
