@@ -287,7 +287,7 @@ def live_main():
 
 
 def main():
-    game = Game(opponent_iterations=10000)
+    game = Game(opponent_iterations=1000)
     game.main_loop()
 
 
